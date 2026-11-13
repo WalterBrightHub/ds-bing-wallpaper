@@ -4,3 +4,7 @@ AppIcon.icns
 AppIcon.iconset/
 __pycache__/
 *.pyc
+.DS_Store
+
+# 图标源图（用户素材，不纳入版本库）
+/assets/
