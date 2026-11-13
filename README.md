@@ -21,6 +21,63 @@
 | 多屏 | 通过 `NSWorkspace` 给所有显示器设置同一张壁纸 |
 | 本地 Web 面板 | `http://127.0.0.1:8791`，只监听回环地址，需进程内令牌 |
 
+## 运行环境
+
+仅支持 **macOS**，只依赖系统自带组件，不需要 pip / npm / brew，也不需要管理员权限。
+
+| 项目 | 版本 / 要求 |
+| --- | --- |
+| 操作系统（开发与验证） | **macOS 27.2.1**（Build 26B131） |
+| 处理器架构 | **Apple Silicon（arm64）**；Intel Mac 未验证 |
+| 最低系统版本 | macOS 12 Monterey（App 声明 `LSMinimumSystemVersion = 12.0`，但仅在上述版本实测通过） |
+| Python | 系统自带 **3.9.6**（`/usr/bin/python3`），只用标准库 |
+| 编译工具 | Xcode Command Line Tools，**Swift 6.4.2**（`swiftc`） |
+| 系统工具 | `sips`（sips-316）、`iconutil`、`launchctl`、`curl` |
+| 磁盘占用 | App 约 2.5 MB，壁纸约 45 MB（10 天全量） |
+
+> 服务只监听 `127.0.0.1`，壁纸与索引全部保存在本机，没有任何数据上传。
+
+## 安装（其他用户）
+
+```bash
+# 1. 取得代码（或直接复制整个目录，放在哪里都可以）
+git clone <仓库地址> ds-bing-wallpaper
+cd ds-bing-wallpaper
+
+# 2. 安装 Xcode 命令行工具：提供 swiftc / sips / iconutil（已装可跳过）
+xcode-select --install
+
+# 3. 一键安装：编译 wallpaperctl、生成图标、打包 App 并装入 /Applications
+make install
+
+# 4. 安装登录代理：开机自启 + 后台常驻 + 崩溃自动重启
+make agent
+```
+
+安装完成后：
+
+- 从「启动台」或「应用程序」打开 **DS 必应壁纸**，浏览器会打开面板；
+- 也可以直接访问 <http://127.0.0.1:8791>；
+- 首次启动会补齐最近 8 天壁纸（约 30 MB），并立即把桌面切成当天壁纸。
+
+验证是否装好：
+
+```bash
+curl -fsS http://127.0.0.1:8791/api/health
+# {"ok": true, "app": "DS Bing Wallpaper", "version": "1.0.0"}
+```
+
+几点说明：
+
+- **不需要 sudo**：`/Applications` 不可写时会自动装到 `~/Applications`。
+- **不要移动项目目录**：启动器在打包时把项目绝对路径写进了 App 内脚本，移动后
+  重新执行 `make install && make agent` 即可。
+- **没有 Xcode 命令行工具**也能跑，但 `wallpaperctl` 无法编译，设置壁纸会回退到
+  AppleScript，需要到「系统设置 → 隐私与安全性 → 自动化」里授权。
+- 通过 zip / 网盘 / AirDrop 拿到的 App 可能带隔离标记，首次打开请**右键 → 打开**，
+  或执行 `xattr -dr com.apple.quarantine "/Applications/DS 必应壁纸.app"`。
+- App 为本地 ad-hoc 签名、未做公证，属正常现象。
+
 ## 图片是怎么获取的（调查结论）
 
 访问 `https://www.bing.com/?mkt=zh-CN` 会被 302 到 `cn.bing.com`。页面 HTML 里
@@ -105,16 +162,6 @@ DSBingWallpaper/
 
 同一张图在 `2026-11/`、`previews/`、`thumbs/` 下**同名**，删除时三份一起删，
 不会留下孤儿文件。
-
-## 安装
-
-```bash
-cd ds-bing-wallpaper
-make install        # 编译 wallpaperctl、生成图标、打包并安装到 /Applications
-make agent          # 安装登录代理：开机自启 + 常驻 + 崩溃重拉
-```
-
-也可以只用 `make serve` 前台运行（调试用，Ctrl-C 结束）。
 
 ## 应用图标
 
