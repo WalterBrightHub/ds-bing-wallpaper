@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="dsbw-token" content="__DSBW_TOKEN__">
+  <meta name="dsbw-version" content="__DSBW_VERSION__">
+  <title>DS 必应壁纸</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+
+  <div class="app">
+    <header class="masthead">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect x="2.5" y="4.5" width="27" height="23" rx="6" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="11" cy="12" r="2.4" fill="currentColor"/>
+            <path d="M5.6 24.4l6.8-6.8 4.2 4.2 3.2-3.2 6.6 6.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <div class="brand-copy">
+          <h1>DS 必应壁纸</h1>
+          <p>每小时同步 Bing 每日壁纸</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <span id="statusPill" class="pill neutral"><i></i><b>连接中</b></span>
+
+        <label class="switch" title="自动更新：每小时切换到最新壁纸">
+          <input type="checkbox" id="autoToggle">
+          <span class="track"><span class="thumb"></span></span>
+          <span class="switch-label">自动更新</span>
+        </label>
+
+        <button id="refreshBtn" class="btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M20 11a8 8 0 10-2.6 6.3M20 5v6h-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>立即刷新</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="stage" id="hero">
+        <figure class="stage-frame">
+          <img id="heroImg" alt="当前壁纸" decoding="async" fetchpriority="high">
+          <div class="stage-scrim" aria-hidden="true"></div>
+
+          <div class="stage-head">
+            <span class="chip" id="heroBadge"><i></i>当前壁纸</span>
+            <span class="stage-date" id="heroDate"></span>
+          </div>
+
+          <figcaption class="stage-caption">
+            <h2 id="heroTitle">正在加载</h2>
+            <p class="stage-credit" id="heroCopyright"></p>
+            <div class="stage-tags" id="heroTags"></div>
+          </figcaption>
+        </figure>
+
+        <div class="stage-rail">
+          <div class="rail-item">
+            <span>上次同步</span>
+            <b id="lastCheck">–</b>
+          </div>
+          <div class="rail-item">
+            <span>下次同步</span>
+            <b id="nextCheck">–</b>
+          </div>
+          <div class="rail-item">
+            <span>桌面文件</span>
+            <b id="desktopFile" title="">–</b>
+          </div>
+        </div>
+      </section>
+
+      <div id="notice" class="notice" hidden></div>
+
+      <section class="library">
+        <header class="library-head">
+          <div class="library-heading">
+            <h2>壁纸库</h2>
+            <p class="library-meta" id="libraryMeta">正在读取…</p>
+          </div>
+          <div class="tabs" role="tablist">
+            <button class="tab is-active" data-filter="all" role="tab">全部<span id="countAll">0</span></button>
+            <button class="tab" data-filter="fav" role="tab">收藏<span id="countFav">0</span></button>
+          </div>
+        </header>
+
+        <p class="hint" id="toolbarHint">点击任意壁纸即可切换，并暂停自动更新</p>
+
+        <div id="grid" class="grid" aria-live="polite"></div>
+
+        <div id="empty" class="empty" hidden>
+          <div class="empty-icon">
+            <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+              <rect x="4" y="8" width="40" height="32" rx="7" stroke="currentColor" stroke-width="2.2"/>
+              <path d="M8.5 34.5l9-9 5.5 5.5 5-5 10.5 10.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 id="emptyTitle">还没有壁纸</h3>
+          <p id="emptyText">点击右上角「立即刷新」，从 Bing 抓取今天的壁纸。</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span class="footer-item">数据目录 <code id="dataDir">–</code></span>
+      <span class="footer-item">版本 <b id="appVersion">–</b></span>
+      <span class="footer-item" id="helperState">–</span>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+.runtime/
+dist/
+AppIcon.icns
+AppIcon.iconset/
+__pycache__/
+*.pyc
