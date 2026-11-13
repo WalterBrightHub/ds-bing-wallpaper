@@ -41,7 +41,7 @@
 
 ```bash
 # 1. 取得代码（或直接复制整个目录，放在哪里都可以）
-git clone <仓库地址> ds-bing-wallpaper
+git clone https://github.com/WalterBrightHub/ds-bing-wallpaper.git
 cd ds-bing-wallpaper
 
 # 2. 安装 Xcode 命令行工具：提供 swiftc / sips / iconutil（已装可跳过）
