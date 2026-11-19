@@ -65,7 +65,7 @@ make agent
 
 ```bash
 curl -fsS http://127.0.0.1:8791/api/health
-# {"ok": true, "app": "DS Bing Wallpaper", "version": "1.1.0"}
+# {"ok": true, "app": "DS Bing Wallpaper", "version": "1.1.1"}
 ```
 
 几点说明：

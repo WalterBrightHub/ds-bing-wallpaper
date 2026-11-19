@@ -134,6 +134,11 @@ def sync(trigger: str = "scheduled", force_refresh: bool = False) -> Dict[str, A
             state["lastCheckAt"] = _now_iso()
             state["lastCheckResult"] = "error"
             state["lastError"] = str(exc)
+            # The scheduler retries sooner than the hourly interval; keep the
+            # reported next check in step with it.
+            state["nextCheckAt"] = (
+                _now() + timedelta(seconds=config.RETRY_SECONDS)
+            ).isoformat(timespec="seconds")
             store.save_state(state)
             return {"ok": False, "error": str(exc), "trigger": trigger}
 

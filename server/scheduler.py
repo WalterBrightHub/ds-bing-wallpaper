@@ -103,8 +103,13 @@ class Scheduler(threading.Thread):
         self._wake.wait()
         trigger = "startup"
         while not self._stop.is_set():
-            self._tick(trigger)
-            trigger = self._await_next()
+            try:
+                self._tick(trigger)
+                trigger = self._await_next()
+            except Exception as exc:  # a daemon thread must never die silently
+                log(f"scheduler loop error: {exc!r} — retrying in 5s")
+                time.sleep(5)
+                trigger = "retry"
             if trigger == "stopped":
                 break
 
@@ -141,7 +146,7 @@ class Scheduler(threading.Thread):
         while not self._stop.is_set():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                return "scheduled"
+                return "scheduled" if self._next_delay == self.interval else "retry"
 
             woke = self._wake.wait(timeout=min(remaining, config.POLL_SECONDS))
 
