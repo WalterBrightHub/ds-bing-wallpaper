@@ -168,11 +168,13 @@ class Handler(BaseHTTPRequestHandler):
                 result: Dict[str, Any] = {"ok": True, "autoUpdate": state["settings"]["autoUpdate"]}
                 if enabled:
                     result["sync"] = service.sync(trigger="auto-enabled")
+                    scheduler.log(f"sync trigger=auto-enabled result={result['sync']}")
                 self._json({**result, "status": service.status()})
                 return
 
             if path == "/api/refresh":
                 result = service.refresh_now()
+                scheduler.log(f"sync trigger=manual result={result}")
                 self._json({"ok": bool(result.get("ok")), "sync": result, "status": service.status()})
                 return
 

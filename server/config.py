@@ -10,7 +10,7 @@ from pathlib import Path
 
 APP_NAME = "DS Bing Wallpaper"
 APP_NAME_ZH = "DS 必应壁纸"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 BUNDLE_ID = "com.deepseek.dsbingwallpaper"
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
@@ -40,6 +40,13 @@ THUMB_WIDTH = 640
 PREVIEW_WIDTH = 1600
 REQUEST_TIMEOUT = 25
 HOUR_SECONDS = 3600
+# How often the sleeping loop wakes to check for a system resume. Keeps the
+# post-wake detection latency small (a few seconds) at negligible cost.
+POLL_SECONDS = 30
+# Wall-clock drift (beyond monotonic time) that means the machine was asleep.
+WAKE_DRIFT_THRESHOLD = 90
+# Retry delay after a failed sync (e.g. no network right after waking up).
+RETRY_SECONDS = 300
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "

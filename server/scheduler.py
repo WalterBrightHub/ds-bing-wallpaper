@@ -1,16 +1,21 @@
 """Hourly background refresh loop.
 
-Runs inside the web server process. `trigger_now()` makes the loop wake up
-immediately, which is how the "立即刷新" button works without a second thread.
+Runs inside the web server process. Two kinds of early wake-up are handled:
+
+* `trigger_now()` — an explicit nudge from the API (kept for completeness).
+* System resume — macOS stops `time.monotonic()` while asleep, so a wall-clock
+  jump that monotonic cannot explain means the machine was suspended. When that
+  happens the loop syncs immediately instead of waiting out the remainder of the
+  hour, which is what makes "wake the laptop, get today's wallpaper" work.
 """
 from __future__ import annotations
 
 import threading
 import time
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
-from . import config, service, store
+from . import config, service
 
 
 def log(message: str) -> None:
@@ -22,7 +27,31 @@ def log(message: str) -> None:
             handle.write(line)
     except OSError:
         pass
-    print(line.rstrip(), flush=True)
+    try:
+        print(line.rstrip(), flush=True)
+    except (OSError, ValueError):
+        pass
+
+
+def detect_wake(
+    mono_prev: float,
+    wall_prev: float,
+    mono_now: float,
+    wall_now: float,
+    threshold: float = config.WAKE_DRIFT_THRESHOLD,
+) -> float:
+    """Seconds of wall-clock time that monotonic time did not account for.
+
+    On macOS `time.monotonic()` freezes while the system sleeps, so after a
+    resume the wall clock has run ahead. Small drift (NTP corrections, slow
+    poll loops) stays below the threshold; a suspend/resume exceeds it.
+
+    Returns the drift when it looks like a wake, otherwise 0.0.
+    """
+    drift = (wall_now - wall_prev) - (mono_now - mono_prev)
+    if drift >= threshold:
+        return drift
+    return 0.0
 
 
 class Scheduler(threading.Thread):
@@ -35,6 +64,9 @@ class Scheduler(threading.Thread):
         self._running = False
         self._last_result: Optional[Dict[str, Any]] = None
         self._next_run: Optional[datetime] = None
+        self._next_delay = interval
+        self._last_wake_at: Optional[datetime] = None
+        self._wake_syncs = 0
         self._lock = threading.Lock()
 
     # -- public ---------------------------------------------------
@@ -56,43 +88,77 @@ class Scheduler(threading.Thread):
         with self._lock:
             return {
                 "intervalSeconds": self.interval,
+                "pollSeconds": config.POLL_SECONDS,
                 "running": self._running,
                 "nextRunAt": self._next_run.isoformat(timespec="seconds") if self._next_run else None,
                 "lastResult": self._last_result,
+                "lastWakeAt": self._last_wake_at.isoformat(timespec="seconds") if self._last_wake_at else None,
+                "wakeSyncs": self._wake_syncs,
             }
 
     # -- loop -----------------------------------------------------
 
     def run(self) -> None:
-        # Wait for the startup kick, then let _tick() own the hourly cadence.
+        # Wait for the startup kick, then let the loop own the cadence.
         self._wake.wait()
+        trigger = "startup"
         while not self._stop.is_set():
-            self._wake.clear()
-            self._tick()
+            self._tick(trigger)
+            trigger = self._await_next()
+            if trigger == "stopped":
+                break
 
-    def _tick(self) -> None:
+    def _tick(self, trigger: str) -> None:
+        self._wake.clear()
         with self._lock:
             self._running = True
             first = self._first_run
             self._first_run = False
+        label = "startup" if first else trigger
+
         try:
-            result = service.sync(trigger="startup" if first else "scheduled")
-            log(f"sync trigger={'startup' if first else 'scheduled'} result={result}")
+            result = service.sync(trigger=label)
+            log(f"sync trigger={label} result={result}")
         except Exception as exc:  # keep the loop alive no matter what
             log(f"sync crashed: {exc!r}")
             result = {"ok": False, "error": str(exc)}
-        finally:
-            with self._lock:
-                self._running = False
-                self._last_result = result
-                self._next_run = datetime.now().astimezone() + timedelta(seconds=self.interval)
 
-        # Sleep until the next hour, but wake early when triggered.
-        deadline = time.monotonic() + self.interval
+        # A failed sync (offline right after wake, Bing hiccup) retries sooner
+        # than a full hour so the daily switch is not postponed for long.
+        delay = self.interval if result.get("ok") else config.RETRY_SECONDS
+        with self._lock:
+            self._running = False
+            self._last_result = result
+            self._next_delay = delay
+            self._next_run = datetime.now().astimezone() + timedelta(seconds=delay)
+
+    def _await_next(self) -> str:
+        """Block until the next sync is due. Returns the trigger label."""
+        deadline = time.monotonic() + self._next_delay
+        mono_prev = time.monotonic()
+        wall_prev = time.time()
+
         while not self._stop.is_set():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                break
-            if self._wake.wait(timeout=min(remaining, 30)):
+                return "scheduled"
+
+            woke = self._wake.wait(timeout=min(remaining, config.POLL_SECONDS))
+
+            mono_now = time.monotonic()
+            wall_now = time.time()
+            drift = detect_wake(mono_prev, wall_prev, mono_now, wall_now)
+            mono_prev, wall_prev = mono_now, wall_now
+
+            if drift:
+                with self._lock:
+                    self._last_wake_at = datetime.now().astimezone()
+                    self._wake_syncs += 1
+                log(f"system wake detected (clock drift {drift:.0f}s) — syncing now")
+                return "wake"
+
+            if woke:
                 self._wake.clear()
-                break
+                return "stopped" if self._stop.is_set() else "manual"
+
+        return "stopped"
