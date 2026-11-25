@@ -287,7 +287,6 @@ def status() -> Dict[str, Any]:
             "title": image.get("title") or "",
             "copyright": image.get("copyright") or "",
             "copyrightlink": bing.absolute_bing_url(image.get("copyrightlink")) or "",
-            "quiz": bing.absolute_bing_url(image.get("quiz")) or "",
             "favorite": bool(image.get("favorite")),
             "available": exists,
             "hasThumb": thumb.is_file(),

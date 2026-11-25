@@ -163,9 +163,9 @@ if __name__ == "__main__":
 
 
 class BingUrlTests(unittest.TestCase):
-    """copyrightlink / quiz 渲染成链接前必须过清洗。"""
+    """copyrightlink 渲染成链接前必须过清洗（只放行 https 的 bing.com）。"""
 
-    def test_relative_quiz_becomes_absolute(self):
+    def test_relative_path_becomes_absolute(self):
         got = bing.absolute_bing_url("/search?q=Bing+homepage+quiz&FORM=HPQUIZ")
         self.assertEqual(got, "https://www.bing.com/search?q=Bing+homepage+quiz&FORM=HPQUIZ")
 
@@ -194,7 +194,7 @@ class BingUrlTests(unittest.TestCase):
         self.assertIsNone(bing.absolute_bing_url(""))
         self.assertIsNone(bing.absolute_bing_url(None))
 
-    def test_record_carries_quiz(self):
-        record = bing.build_record(sample_entry(quiz="/search?q=quiz&FORM=HPQUIZ"))
-        self.assertEqual(record["quiz"], "https://www.bing.com/search?q=quiz&FORM=HPQUIZ")
+    def test_record_keeps_sanitised_copyrightlink(self):
+        record = bing.build_record(sample_entry())
         self.assertTrue(record["copyrightlink"].startswith("https://www.bing.com/"))
+        self.assertNotIn("quiz", record)

@@ -198,10 +198,6 @@
     learn.hidden = !learnUrl;
     if (learnUrl) learn.href = learnUrl;
 
-    const quiz = $("heroQuiz");
-    const quizUrl = safeBingUrl(image.quiz);
-    quiz.hidden = !quizUrl;
-    if (quizUrl) quiz.href = quizUrl;
   }
 
   function renderStats() {
