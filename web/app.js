@@ -11,6 +11,8 @@
     filter: "all",
     busy: false,
     loading: true,
+    firstRender: true,
+    lastFilter: null,
   };
 
   /* ------------------------------------------------------------ util */
@@ -242,7 +244,7 @@
     const data = state.data;
     const grid = $("grid");
     const empty = $("empty");
-    if (!data) { grid.innerHTML = skeleton(6); return; }
+    if (!data) { grid.dataset.key = ""; grid.innerHTML = skeleton(6); return; }
 
     const images = data.images.filter((img) => img.available);
     const filtered = state.filter === "fav" ? images.filter((img) => img.favorite) : images;
@@ -252,6 +254,7 @@
       : "点击任意壁纸即可切换，并暂停自动更新";
 
     if (!filtered.length) {
+      grid.dataset.key = "";
       grid.innerHTML = "";
       empty.hidden = false;
       if (state.filter === "fav") {
@@ -264,6 +267,20 @@
       return;
     }
     empty.hidden = true;
+
+    // 同一批壁纸只打补丁：切换/收藏时不再重建 DOM，避免缩略图闪一下。
+    const key = `${state.filter}|${filtered.map((img) => img.id).join(",")}`;
+    if (grid.dataset.key === key) {
+      patchCards(filtered);
+      return;
+    }
+
+    // 只有结构变化（首次加载、切换筛选、图库增删）才重建并播放入场动画。
+    const animate = state.firstRender || state.filter !== state.lastFilter;
+    grid.classList.toggle("is-static", !animate);
+    grid.dataset.key = key;
+    state.firstRender = false;
+    state.lastFilter = state.filter;
 
     grid.innerHTML = filtered.map((img, index) => {
       const classes = ["card"];
@@ -295,6 +312,35 @@
       if (!item) return;
       img.onload = () => img.classList.add("loaded");
       img.src = thumbUrl(item.id);
+      // 命中浏览器缓存时 onload 可能在赋值前就错过了。
+      if (img.complete) img.classList.add("loaded");
+    });
+  }
+
+  function patchCards(filtered) {
+    const nodes = new Map();
+    $("grid").querySelectorAll(".card[data-id]").forEach((el) => nodes.set(el.dataset.id, el));
+
+    filtered.forEach((img) => {
+      const card = nodes.get(img.id);
+      if (!card) return;
+      card.classList.toggle("is-current", !!img.isCurrent);
+
+      const action = card.querySelector(".card-action");
+      if (action) action.textContent = img.isCurrent ? "使用中" : "设为壁纸";
+
+      const fav = card.querySelector(".fav-btn");
+      if (fav) {
+        fav.classList.toggle("is-on", !!img.favorite);
+        fav.innerHTML = img.favorite ? STAR_FILLED : STAR;
+        fav.setAttribute("aria-pressed", img.favorite ? "true" : "false");
+        fav.setAttribute("aria-label", img.favorite ? "取消收藏" : "收藏");
+      }
+
+      const title = card.querySelector(".card-title");
+      if (title) title.textContent = img.title || "Bing 每日壁纸";
+      const sub = card.querySelector(".card-sub");
+      if (sub) sub.textContent = img.copyright || dayLabel(img.startdate);
     });
   }
 
@@ -336,7 +382,8 @@
 
   async function switchTo(id) {
     await withBusy(async () => {
-      const card = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+      const findCard = () => document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+      const card = findCard();
       if (card) card.classList.add("is-busy");
       try {
         const result = await api("/api/switch", { id });
@@ -345,10 +392,11 @@
         toast("已切换壁纸，并暂停自动更新", "ok");
       } catch (err) {
         toast(`切换失败：${err.message}`, "err");
-        if (card) card.classList.remove("is-busy");
-        return;
+      } finally {
+        // render() 可能复用了原节点，也可能重建过，重新查一次最稳妥。
+        const now = findCard();
+        if (now) now.classList.remove("is-busy");
       }
-      if (card) card.classList.remove("is-busy");
     });
   }
 

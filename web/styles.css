@@ -502,6 +502,12 @@ main {
   transition: transform 0.35s var(--ease), border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
   animation: rise 0.55s var(--ease) both;
 }
+/* 数据刷新（切换/收藏/轮询）时不重播入场动画 */
+.grid.is-static .card {
+  /* 只关动画：不要在这里写 opacity/transform，否则会盖掉 .card:hover 的上浮 */
+  animation: none;
+}
+
 @keyframes rise {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: none; }
