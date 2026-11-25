@@ -62,6 +62,30 @@ def fetch_archive(n: int = 8, idx: int = 0, mkt: str = config.BING_MKT) -> List[
     return images
 
 
+def absolute_bing_url(value: object) -> Optional[str]:
+    """Normalise a Bing-relative/absolute URL; reject anything that is not Bing.
+
+    The archive returns `copyrightlink` as an absolute URL and `quiz` as a
+    site-relative path. Both are rendered as clickable links in the panel, so
+    this is the single choke point that keeps non-HTTPS or foreign hosts out.
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    if raw.startswith("//"):
+        raw = "https:" + raw
+    elif raw.startswith("/"):
+        raw = "https://www.bing.com" + raw
+
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme != "https":
+        return None
+    host = (parsed.netloc or "").lower()
+    if host != "bing.com" and not host.endswith(".bing.com"):
+        return None
+    return raw
+
+
 def ohr_token(entry: Dict[str, Any]) -> str:
     """`OHR.NorthWindow_ZH-CN6734579353` from urlbase, else from url."""
     urlbase = str(entry.get("urlbase") or "")
@@ -112,7 +136,8 @@ def build_record(entry: Dict[str, Any]) -> Dict[str, Any]:
         "startdate": startdate,
         "title": str(entry.get("title") or "").strip(),
         "copyright": str(entry.get("copyright") or "").strip(),
-        "copyrightlink": str(entry.get("copyrightlink") or "").strip(),
+        "copyrightlink": absolute_bing_url(entry.get("copyrightlink")) or "",
+        "quiz": absolute_bing_url(entry.get("quiz")) or "",
         "hsh": str(entry.get("hsh") or "").strip(),
         "source": "HPImageArchive",
         "url": absolute_url(entry),

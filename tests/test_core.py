@@ -160,3 +160,41 @@ class ArchiveParseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BingUrlTests(unittest.TestCase):
+    """copyrightlink / quiz 渲染成链接前必须过清洗。"""
+
+    def test_relative_quiz_becomes_absolute(self):
+        got = bing.absolute_bing_url("/search?q=Bing+homepage+quiz&FORM=HPQUIZ")
+        self.assertEqual(got, "https://www.bing.com/search?q=Bing+homepage+quiz&FORM=HPQUIZ")
+
+    def test_protocol_relative_is_upgraded(self):
+        self.assertEqual(bing.absolute_bing_url("//www.bing.com/x"), "https://www.bing.com/x")
+
+    def test_absolute_bing_url_is_kept(self):
+        url = "https://www.bing.com/search?q=%E5%B8%83%E8%8E%B1%E6%96%AF"
+        self.assertEqual(bing.absolute_bing_url(url), url)
+
+    def test_subdomain_is_allowed(self):
+        self.assertEqual(bing.absolute_bing_url("https://cn.bing.com/x"), "https://cn.bing.com/x")
+
+    def test_http_is_rejected(self):
+        self.assertIsNone(bing.absolute_bing_url("http://www.bing.com/x"))
+
+    def test_foreign_host_is_rejected(self):
+        self.assertIsNone(bing.absolute_bing_url("https://evil.example.com/x"))
+        self.assertIsNone(bing.absolute_bing_url("https://bing.com.evil.com/x"))
+
+    def test_script_scheme_is_rejected(self):
+        self.assertIsNone(bing.absolute_bing_url("javascript:alert(1)"))
+        self.assertIsNone(bing.absolute_bing_url("data:text/html,<script>"))
+
+    def test_empty_is_rejected(self):
+        self.assertIsNone(bing.absolute_bing_url(""))
+        self.assertIsNone(bing.absolute_bing_url(None))
+
+    def test_record_carries_quiz(self):
+        record = bing.build_record(sample_entry(quiz="/search?q=quiz&FORM=HPQUIZ"))
+        self.assertEqual(record["quiz"], "https://www.bing.com/search?q=quiz&FORM=HPQUIZ")
+        self.assertTrue(record["copyrightlink"].startswith("https://www.bing.com/"))

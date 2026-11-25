@@ -333,6 +333,31 @@ main {
   -webkit-backdrop-filter: blur(10px);
 }
 
+.stage-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  margin-top: 18px;
+}
+
+.stage-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: rgba(240, 246, 253, 0.86);
+  text-decoration: none;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.34);
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+}
+.stage-link svg { width: 13px; height: 13px; flex: none; }
+.stage-link:hover { color: #fff; border-color: rgba(255, 255, 255, 0.95); }
+.stage-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.stage-link[hidden] { display: none; }
+
 .stage-rail {
   display: grid;
   padding-top: 4px;

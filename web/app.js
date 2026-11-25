@@ -65,6 +65,17 @@
     return mins ? `${hours} 小时 ${mins} 分后` : `${hours} 小时后`;
   }
 
+  function safeBingUrl(value) {
+    try {
+      const url = new URL(String(value || ""));
+      const host = url.hostname.toLowerCase();
+      if (url.protocol !== "https:") return "";
+      return host === "bing.com" || host.endsWith(".bing.com") ? url.href : "";
+    } catch (_) {
+      return "";
+    }
+  }
+
   function thumbUrl(id) {
     return `/api/thumb/${encodeURIComponent(id)}?t=${encodeURIComponent(TOKEN)}`;
   }
@@ -179,6 +190,16 @@
     if (image.favorite) tags.push("★ 已收藏");
     if (data.autoUpdate && image.isCurrent) tags.push("每小时检查更新");
     $("heroTags").innerHTML = tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("");
+
+    const learn = $("heroLearn");
+    const learnUrl = safeBingUrl(image.copyrightlink);
+    learn.hidden = !learnUrl;
+    if (learnUrl) learn.href = learnUrl;
+
+    const quiz = $("heroQuiz");
+    const quizUrl = safeBingUrl(image.quiz);
+    quiz.hidden = !quizUrl;
+    if (quizUrl) quiz.href = quizUrl;
   }
 
   function renderStats() {

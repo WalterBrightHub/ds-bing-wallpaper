@@ -22,6 +22,7 @@
 | 多屏 | 通过 `NSWorkspace` 给所有显示器设置同一张壁纸 |
 | 本地 Web 面板 | `http://127.0.0.1:8791`，只监听回环地址，需进程内令牌 |
 | 打开文件夹 | 面板「打开文件夹」按钮直接在访达中定位壁纸库目录 |
+| 延伸阅读 | 大图下方「了解这张壁纸 / 参加小测验」跳转 Bing，取自接口的 `copyrightlink` 与 `quiz` |
 
 ## 运行环境
 
@@ -66,7 +67,7 @@ make agent
 
 ```bash
 curl -fsS http://127.0.0.1:8791/api/health
-# {"ok": true, "app": "DS Bing Wallpaper", "version": "1.2.1"}
+# {"ok": true, "app": "DS Bing Wallpaper", "version": "1.3.0"}
 ```
 
 几点说明：
@@ -185,6 +186,8 @@ make build      # 重新生成 AppIcon.icns 并打包
 - 右上角开关「自动更新」只控制**是否把桌面切换到最新壁纸**；抓取、下载、清理与它无关，
   关闭后仍每小时自动补图库（面板状态会显示「切换已暂停」）
 - 「立即刷新」立刻同步一次
+- 大图下方的 **了解这张壁纸**（Bing 搜索拍摄地介绍）与 **参加小测验** 会在新标签页打开；
+  两者都来自接口字段，渲染前只接受 `https://*.bing.com` 的链接
 - 「壁纸库」右侧的**打开文件夹**会在访达中定位到壁纸目录
   （`~/Library/Application Support/DSBingWallpaper/wallpapers`）
 
@@ -233,7 +236,7 @@ make serve   # 前台起服务
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/health` | 探活，启动器使用 |
-| GET | `/api/state` | 完整状态与图库 |
+| GET | `/api/state` | 完整状态与图库（每张含 `copyrightlink`、`quiz`） |
 | GET | `/api/image/{id}?t=` | 原图 |
 | GET | `/api/preview/{id}?t=` | 1600px 预览 |
 | GET | `/api/thumb/{id}?t=` | 640px 缩略图 |
