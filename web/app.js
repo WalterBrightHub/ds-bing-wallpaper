@@ -279,6 +279,7 @@
     state.lastFilter = state.filter;
 
     grid.innerHTML = filtered.map((img, index) => {
+      const learnUrl = safeBingUrl(img.copyrightlink);
       const classes = ["card"];
       if (img.isCurrent) classes.push("is-current");
       const delay = Math.min(index * 40, 320);
@@ -289,9 +290,19 @@
           <div class="card-shade"></div>
           <div class="card-top">
             <span class="card-date">${esc(dateLabel(img.startdate))}</span>
-            <button class="fav-btn ${img.favorite ? "is-on" : ""}" data-fav="${esc(img.id)}"
-                    type="button" aria-label="${img.favorite ? "取消收藏" : "收藏"}"
-                    aria-pressed="${img.favorite ? "true" : "false"}">${img.favorite ? STAR_FILLED : STAR}</button>
+            <div class="card-tools">
+              <a class="info-btn" href="${esc(learnUrl)}" data-learn="${esc(learnUrl)}"
+                 target="_blank" rel="noopener noreferrer" title="了解这张壁纸" aria-label="了解这张壁纸"
+                 ${learnUrl ? "" : "hidden"}>
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4.5 11.5l7-7M6 4.5h5.5V10" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </a>
+              <button class="fav-btn ${img.favorite ? "is-on" : ""}" data-fav="${esc(img.id)}"
+                      type="button" aria-label="${img.favorite ? "取消收藏" : "收藏"}"
+                      aria-pressed="${img.favorite ? "true" : "false"}">${img.favorite ? STAR_FILLED : STAR}</button>
+            </div>
           </div>
           <div class="card-bottom">
             <div class="card-text">
@@ -331,6 +342,16 @@
         fav.innerHTML = img.favorite ? STAR_FILLED : STAR;
         fav.setAttribute("aria-pressed", img.favorite ? "true" : "false");
         fav.setAttribute("aria-label", img.favorite ? "取消收藏" : "收藏");
+      }
+
+      const info = card.querySelector(".info-btn");
+      if (info) {
+        const url = safeBingUrl(img.copyrightlink);
+        info.hidden = !url;
+        if (url) {
+          info.href = url;
+          info.dataset.learn = url;
+        }
       }
 
       const title = card.querySelector(".card-title");
@@ -465,6 +486,12 @@
 
   function bind() {
     $("grid").addEventListener("click", (event) => {
+      if (event.target.closest("[data-learn]")) {
+        // 外链由 <a> 自己处理（保留中键/复制链接），只需阻止冒泡到卡片。
+        event.stopPropagation();
+        return;
+      }
+
       const fav = event.target.closest("[data-fav]");
       if (fav) {
         event.stopPropagation();
@@ -478,7 +505,7 @@
     $("grid").addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       const card = event.target.closest(".card[data-id]");
-      if (!card || event.target.closest("[data-fav]")) return;
+      if (!card || event.target.closest("[data-fav], .info-btn")) return;
       event.preventDefault();
       switchTo(card.dataset.id);
     });
