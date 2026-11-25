@@ -123,3 +123,82 @@ class RevealLibraryTests(unittest.TestCase):
         shutil.rmtree(config.WALLPAPER_DIR, ignore_errors=True)
         service.reveal_library()
         self.assertTrue(config.WALLPAPER_DIR.is_dir())
+
+
+class PausedStillFetchesTests(unittest.TestCase):
+    """自动更新只控制「是否切换壁纸」，抓取/下载必须照常进行。"""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="dsbw-paused-"))
+        self._orig_paths = (config.DATA_DIR, config.WALLPAPER_DIR, config.INDEX_PATH, config.STATE_PATH)
+        config.DATA_DIR = self.tmp
+        config.WALLPAPER_DIR = self.tmp / "wallpapers"
+        config.INDEX_PATH = self.tmp / "index.json"
+        config.STATE_PATH = self.tmp / "state.json"
+        config.ensure_dirs()
+
+        self._orig = (
+            bing.fetch_archive, bing.download_image, bing.make_derivatives,
+            service.wallpaper.set_wallpaper, service.wallpaper.get_wallpaper,
+        )
+        self.applied = []
+
+        today = datetime.now().strftime("%Y%m%d")
+        self.entry = {
+            "startdate": today,
+            "urlbase": "/th?id=OHR.TestScene_ZH-CN1234567890",
+            "hsh": "abcdef1234567890",
+            "title": "测试壁纸",
+            "copyright": "测试版权",
+            "copyrightlink": "",
+        }
+        bing.fetch_archive = lambda **_kw: [self.entry]
+
+        def fake_download(record, retries=3):
+            path = config.WALLPAPER_DIR / record["file"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"\xff\xd8\xff" + b"0" * 200)
+            return {"bytes": 203, "downloadedAt": "2026-01-01T00:00:00+08:00"}
+
+        bing.download_image = fake_download
+        bing.make_derivatives = lambda record: True
+        service.wallpaper.set_wallpaper = lambda path: (self.applied.append(str(path)), (True, "ok"))[1]
+        service.wallpaper.get_wallpaper = lambda: ""
+
+    def tearDown(self):
+        (bing.fetch_archive, bing.download_image, bing.make_derivatives,
+         service.wallpaper.set_wallpaper, service.wallpaper.get_wallpaper) = self._orig
+        config.DATA_DIR, config.WALLPAPER_DIR, config.INDEX_PATH, config.STATE_PATH = self._orig_paths
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _set_auto(self, enabled: bool):
+        state = store.load_state()
+        state["settings"]["autoUpdate"] = enabled
+        store.save_state(state)
+
+    def test_paused_still_downloads_and_keeps_desktop(self):
+        self._set_auto(False)
+        result = service.sync(trigger="scheduled")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(result["downloaded"]), 1, "暂停自动更新时也必须继续抓取下载")
+        ids = [img["id"] for img in store.list_images()]
+        self.assertEqual(len(ids), 1)
+        self.assertTrue((config.WALLPAPER_DIR / f"2026-11/{ids[0]}.jpg").exists()
+                        or any(config.WALLPAPER_DIR.rglob(f"{ids[0]}.jpg")))
+
+        state = store.load_state()
+        self.assertIsNone(state["currentId"], "暂停时不应切换桌面壁纸")
+        self.assertEqual(self.applied, [], "暂停时不应调用设置壁纸")
+        self.assertEqual(state["lastCheckResult"], "ok")
+        self.assertTrue(state["lastCheckAt"])
+
+    def test_auto_enabled_still_downloads_and_switches(self):
+        self._set_auto(True)
+        result = service.sync(trigger="scheduled")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(result["downloaded"]), 1)
+        self.assertEqual(result["action"], "switched")
+        self.assertEqual(len(self.applied), 1, "自动更新开启时应设置壁纸")
+        self.assertIsNotNone(store.load_state()["currentId"])

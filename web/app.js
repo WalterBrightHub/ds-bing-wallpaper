@@ -125,10 +125,8 @@
 
     auto.checked = !!data.autoUpdate;
 
-    if (data.lastError && !data.autoUpdate) {
-      pill.className = "pill paused";
-      pill.innerHTML = "<i></i><b>已暂停</b>";
-    } else if (data.lastError) {
+    if (data.lastError) {
+      // 抓取失败与开关无关：数据没进来时必须明确报出来。
       pill.className = "pill offline";
       pill.innerHTML = "<i></i><b>同步异常</b>";
     } else if (data.autoUpdate) {
@@ -136,11 +134,11 @@
       pill.innerHTML = "<i></i><b>自动更新中</b>";
     } else {
       pill.className = "pill paused";
-      pill.innerHTML = "<i></i><b>已暂停</b>";
+      pill.innerHTML = "<i></i><b>切换已暂停</b>";
     }
 
     $("lastCheck").textContent = data.lastCheckAt ? `${clock(data.lastCheckAt)}` : "–";
-    $("nextCheck").textContent = data.autoUpdate ? relativeFuture(data.nextCheckAt) : "已暂停";
+    $("nextCheck").textContent = relativeFuture(data.nextCheckAt);
     const desktop = data.desktopPath ? data.desktopPath.split("/").pop() : "未知";
     const desktopEl = $("desktopFile");
     desktopEl.textContent = desktop;
@@ -170,7 +168,7 @@
 
     $("heroBadge").innerHTML = data.autoUpdate
       ? "<i></i>自动更新 · 最新壁纸"
-      : `<i></i>${data.pausedReason === "user-picked" ? "已固定 · 手动选择" : "已暂停 · 保持当前"}`;
+      : `<i></i>${data.pausedReason === "user-picked" ? "已固定 · 手动选择" : "切换已暂停 · 保持当前"}`;
     $("heroDate").textContent = dayLabel(image.startdate);
     $("heroTitle").textContent = image.title || "未命名壁纸";
     $("heroCopyright").textContent = image.copyright || "";
@@ -211,7 +209,9 @@
     if (!data.autoUpdate) {
       notice.hidden = false;
       notice.className = "notice";
-      notice.textContent = "自动更新已暂停，当前壁纸将保持不变。打开「自动更新」会立即切换到最新 Bing 壁纸。";
+      notice.textContent =
+        "自动更新已暂停：桌面保持为你指定的壁纸，但图库仍会每小时自动抓取新壁纸。"
+        + "打开「自动更新」会立即切换到最新的一张。";
       return;
     }
     notice.hidden = true;
