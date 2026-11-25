@@ -408,6 +408,13 @@ main {
   color: var(--muted);
 }
 
+.library-tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .tabs {
   display: inline-flex;
   gap: 4px;

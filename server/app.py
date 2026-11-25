@@ -178,6 +178,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": bool(result.get("ok")), "sync": result, "status": service.status()})
                 return
 
+            if path == "/api/reveal-library":
+                result = service.reveal_library()
+                scheduler.log(f"reveal library -> {result}")
+                self._json(result)
+                return
+
             if path == "/api/apply-current":
                 image = store.get_image(str(body.get("id") or ""))
                 if not image:

@@ -382,6 +382,20 @@
     }
   }
 
+  async function revealLibrary() {
+    const btn = $("revealBtn");
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      const result = await api("/api/reveal-library", {});
+      toast(`已在访达中打开：${result.path}`, "ok");
+    } catch (err) {
+      toast(`打开失败：${err.message}`, "err");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   /* ------------------------------------------------------------- wire */
 
   function bind() {
@@ -418,6 +432,7 @@
     });
 
     $("refreshBtn").addEventListener("click", refreshNow);
+    $("revealBtn").addEventListener("click", revealLibrary);
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "r" && (event.metaKey || event.ctrlKey)) {

@@ -70,3 +70,56 @@ class SyncTimingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RevealLibraryTests(unittest.TestCase):
+    """`打开文件夹` must only ever open the fixed library path."""
+
+    class _Result:
+        def __init__(self, returncode=0, stderr=""):
+            self.returncode = returncode
+            self.stdout = ""
+            self.stderr = stderr
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="dsbw-reveal-"))
+        self._orig_paths = (config.DATA_DIR, config.WALLPAPER_DIR, config.INDEX_PATH, config.STATE_PATH)
+        config.DATA_DIR = self.tmp
+        config.WALLPAPER_DIR = self.tmp / "wallpapers"
+        config.INDEX_PATH = self.tmp / "index.json"
+        config.STATE_PATH = self.tmp / "state.json"
+        config.ensure_dirs()
+        self._orig_run = service.subprocess.run
+        self.calls = []
+
+    def tearDown(self):
+        service.subprocess.run = self._orig_run
+        config.DATA_DIR, config.WALLPAPER_DIR, config.INDEX_PATH, config.STATE_PATH = self._orig_paths
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_opens_the_library_folder(self):
+        def fake_run(argv, **kwargs):
+            self.calls.append((argv, kwargs))
+            return self._Result()
+
+        service.subprocess.run = fake_run
+        result = service.reveal_library()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["path"], str(config.WALLPAPER_DIR))
+        argv = self.calls[0][0]
+        self.assertEqual(argv[0], "/usr/bin/open")
+        self.assertEqual(argv[1], str(config.WALLPAPER_DIR))
+        self.assertEqual(len(argv), 2)
+
+    def test_surfaces_finder_failure(self):
+        service.subprocess.run = lambda argv, **kw: self._Result(returncode=1, stderr="no such file")
+        result = service.reveal_library()
+        self.assertFalse(result["ok"])
+        self.assertIn("no such file", result["error"])
+
+    def test_creates_folder_when_missing(self):
+        service.subprocess.run = lambda argv, **kw: self._Result()
+        shutil.rmtree(config.WALLPAPER_DIR, ignore_errors=True)
+        service.reveal_library()
+        self.assertTrue(config.WALLPAPER_DIR.is_dir())

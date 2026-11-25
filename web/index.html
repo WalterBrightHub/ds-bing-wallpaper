@@ -88,9 +88,19 @@
             <h2>壁纸库</h2>
             <p class="library-meta" id="libraryMeta">正在读取…</p>
           </div>
-          <div class="tabs" role="tablist">
-            <button class="tab is-active" data-filter="all" role="tab">全部<span id="countAll">0</span></button>
-            <button class="tab" data-filter="fav" role="tab">收藏<span id="countFav">0</span></button>
+          <div class="library-tools">
+            <div class="tabs" role="tablist">
+              <button class="tab is-active" data-filter="all" role="tab">全部<span id="countAll">0</span></button>
+              <button class="tab" data-filter="fav" role="tab">收藏<span id="countFav">0</span></button>
+            </div>
+
+            <button id="revealBtn" class="btn" type="button" title="在访达中打开壁纸库文件夹">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3 7.6A2.6 2.6 0 015.6 5h3.1c.7 0 1.4.3 1.9.8l1 1.2h6.8A2.6 2.6 0 0121 9.6v6.8A2.6 2.6 0 0118.4 19H5.6A2.6 2.6 0 013 16.4V7.6z"
+                      stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              </svg>
+              <span>打开文件夹</span>
+            </button>
           </div>
         </header>
 

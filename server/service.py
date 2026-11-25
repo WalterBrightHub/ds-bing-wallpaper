@@ -5,6 +5,7 @@ race each other into downloading the same file twice or setting two wallpapers.
 """
 from __future__ import annotations
 
+import subprocess
 import threading
 import time
 from datetime import datetime, timedelta
@@ -227,6 +228,34 @@ def switch_to(image_id: str) -> Dict[str, Any]:
         state["updatedAt"] = _now_iso()
         store.save_state(state)
     return {"applied": applied, "state": store.load_state()}
+
+
+def reveal_library() -> Dict[str, Any]:
+    """Open the wallpaper library folder in Finder.
+
+    Only ever opens the fixed library path, so there is no user-supplied input
+    reaching the shell.
+    """
+    target = config.WALLPAPER_DIR
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        completed = subprocess.run(
+            ["/usr/bin/open", str(target)],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"ok": False, "path": str(target), "error": str(exc)}
+
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()
+        return {
+            "ok": False,
+            "path": str(target),
+            "error": detail or f"open 退出码 {completed.returncode}",
+        }
+    return {"ok": True, "path": str(target)}
 
 
 def refresh_now() -> Dict[str, Any]:

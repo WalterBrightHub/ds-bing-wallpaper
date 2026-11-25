@@ -21,6 +21,7 @@
 | 自动清理 | 超过 10 天且未收藏、非当前的壁纸，连同缩略图一起删除 |
 | 多屏 | 通过 `NSWorkspace` 给所有显示器设置同一张壁纸 |
 | 本地 Web 面板 | `http://127.0.0.1:8791`，只监听回环地址，需进程内令牌 |
+| 打开文件夹 | 面板「打开文件夹」按钮直接在访达中定位壁纸库目录 |
 
 ## 运行环境
 
@@ -65,7 +66,7 @@ make agent
 
 ```bash
 curl -fsS http://127.0.0.1:8791/api/health
-# {"ok": true, "app": "DS Bing Wallpaper", "version": "1.1.1"}
+# {"ok": true, "app": "DS Bing Wallpaper", "version": "1.2.0"}
 ```
 
 几点说明：
@@ -182,6 +183,8 @@ make build      # 重新生成 AppIcon.icns 并打包
 - 面板地址：<http://127.0.0.1:8791>（端口被占用时自动顺延，实际地址写在
   `~/Library/Application Support/DSBingWallpaper/server-url`）
 - 右上角开关「自动更新」；「立即刷新」立刻同步一次
+- 「壁纸库」右侧的**打开文件夹**会在访达中定位到壁纸目录
+  （`~/Library/Application Support/DSBingWallpaper/wallpapers`）
 
 ## 卸载
 
@@ -236,6 +239,7 @@ make serve   # 前台起服务
 | POST | `/api/favorite` `{id}` | 切换收藏 |
 | POST | `/api/auto-update` `{enabled}` | 开关自动更新（开启即切到最新） |
 | POST | `/api/refresh` | 立即同步 |
+| POST | `/api/reveal-library` | 在访达中打开壁纸库目录 |
 
 ## 设计取舍
 
