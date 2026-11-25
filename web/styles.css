@@ -152,45 +152,6 @@ main {
   50% { opacity: 0.35; }
 }
 
-/* switch */
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  user-select: none;
-  font-size: 15px;
-  color: var(--muted);
-}
-.switch input { position: absolute; opacity: 0; pointer-events: none; }
-.switch .track {
-  position: relative;
-  width: 50px;
-  height: 30px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid var(--line);
-  transition: background 0.25s var(--ease), border-color 0.25s var(--ease);
-  flex: none;
-}
-.switch .thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #cbd6e4;
-  transition: transform 0.25s var(--ease), background 0.25s var(--ease);
-}
-.switch input:checked + .track {
-  background: linear-gradient(135deg, #6cb8f5, #8f96ff);
-  border-color: transparent;
-}
-.switch input:checked + .track .thumb { transform: translateX(20px); background: #fff; }
-.switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 3px; }
-.switch-label { font-weight: 500; }
-
 /* button */
 .btn {
   display: inline-flex;

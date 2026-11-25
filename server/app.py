@@ -163,10 +163,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             if path in ("/api/auto-update", "/api/auto"):
+                # 兼容旧接口：等价于 mode 与 off 之间的切换
                 enabled = bool(body.get("enabled"))
                 state = service.set_auto_update(enabled)
-                result: Dict[str, Any] = {"ok": True, "autoUpdate": state["settings"]["autoUpdate"]}
-                if enabled:
+                mode = state["settings"]["mode"]
+                result: Dict[str, Any] = {"ok": True, "autoUpdate": mode != "off", "mode": mode}
+                if mode == "favorites":
+                    result["rotate"] = service.rotate_favorite(force=True)
+                    scheduler.log(f"mode=favorites rotate result={result['rotate']}")
+                elif mode != "off":
                     result["sync"] = service.sync(trigger="auto-enabled")
                     scheduler.log(f"sync trigger=auto-enabled result={result['sync']}")
                 self._json({**result, "status": service.status()})

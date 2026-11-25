@@ -173,7 +173,7 @@ class PausedStillFetchesTests(unittest.TestCase):
 
     def _set_auto(self, enabled: bool):
         state = store.load_state()
-        state["settings"]["autoUpdate"] = enabled
+        state["settings"]["mode"] = "latest" if enabled else "off"
         store.save_state(state)
 
     def test_paused_still_downloads_and_keeps_desktop(self):

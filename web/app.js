@@ -127,27 +127,26 @@
   function renderStatus() {
     const data = state.data;
     const pill = $("statusPill");
-    const auto = $("autoToggle");
 
     if (!data) {
       pill.className = "pill offline";
       pill.innerHTML = "<i></i><b>未连接</b>";
-      auto.checked = false;
       return;
     }
 
-    auto.checked = !!data.autoUpdate;
-
     if (data.lastError) {
-      // 抓取失败与开关无关：数据没进来时必须明确报出来。
+      // 抓取失败与模式无关：数据没进来时必须明确报出来。
       pill.className = "pill offline";
       pill.innerHTML = "<i></i><b>同步异常</b>";
-    } else if (data.autoUpdate) {
-      pill.className = "pill live";
-      pill.innerHTML = "<i></i><b>自动切换中</b>";
-    } else {
+    } else if (data.mode === "off") {
       pill.className = "pill paused";
-      pill.innerHTML = "<i></i><b>切换已暂停</b>";
+      pill.innerHTML = "<i></i><b>已固定</b>";
+    } else if (data.mode === "favorites") {
+      pill.className = "pill live";
+      pill.innerHTML = "<i></i><b>收藏轮换中</b>";
+    } else {
+      pill.className = "pill live";
+      pill.innerHTML = "<i></i><b>跟随最新</b>";
     }
 
     $("lastCheck").textContent = data.lastCheckAt ? `${clock(data.lastCheckAt)}` : "–";
@@ -172,7 +171,7 @@
     const select = $("intervalSelect");
     if (!data) return;
 
-    const mode = data.mode === "favorites" ? "favorites" : "latest";
+    const mode = ["off", "favorites"].includes(data.mode) ? data.mode : "latest";
     document.querySelectorAll(".segment").forEach((btn) => {
       btn.classList.toggle("is-active", btn.dataset.mode === mode);
     });
@@ -180,8 +179,8 @@
     wrap.hidden = mode !== "favorites";
     if (mode === "favorites") select.value = String(data.favoriteIntervalMinutes || 180);
 
-    if (!data.autoUpdate) {
-      note.textContent = "自动切换已暂停；点选任一模式即可重新开启";
+    if (mode === "off") {
+      note.textContent = "已固定当前壁纸；图库仍每小时自动抓取";
     } else if (mode === "latest") {
       note.textContent = "跟随 Bing 每日最新壁纸，同一张不重复设置";
     } else {
@@ -213,11 +212,14 @@
       img.src = url;
     }
 
-    $("heroBadge").innerHTML = data.autoUpdate
-      ? (data.mode === "favorites"
-          ? `<i></i>收藏轮换 · 每 ${intervalLabel(data.favoriteIntervalMinutes)}`
-          : "<i></i>自动更新 · 最新壁纸")
-      : `<i></i>${data.pausedReason === "user-picked" ? "已固定 · 手动选择" : "切换已暂停 · 保持当前"}`;
+    if (data.mode === "off") {
+      $("heroBadge").innerHTML =
+        `<i></i>${data.pausedReason === "user-picked" ? "已固定 · 手动选择" : "已固定 · 保持当前"}`;
+    } else if (data.mode === "favorites") {
+      $("heroBadge").innerHTML = `<i></i>收藏轮换 · 每 ${intervalLabel(data.favoriteIntervalMinutes)}`;
+    } else {
+      $("heroBadge").innerHTML = "<i></i>自动更新 · 最新壁纸";
+    }
     $("heroDate").textContent = dayLabel(image.startdate);
     $("heroTitle").textContent = image.title || "未命名壁纸";
     $("heroCopyright").textContent = image.copyright || "";
@@ -226,7 +228,7 @@
     if (image.width && image.height) tags.push(`${image.width}×${image.height}`);
     tags.push(`#${String(image.id).split("-").pop()}`);
     if (image.favorite) tags.push("★ 已收藏");
-    if (data.autoUpdate && image.isCurrent) {
+    if (data.mode !== "off" && image.isCurrent) {
       tags.push(data.mode === "favorites" ? "收藏轮换中" : "每小时检查更新");
     }
     $("heroTags").innerHTML = tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("");
@@ -263,12 +265,12 @@
       notice.textContent = `最近一次同步出错：${data.lastError}`;
       return;
     }
-    if (!data.autoUpdate) {
+    if (data.mode === "off") {
       notice.hidden = false;
       notice.className = "notice";
       notice.textContent =
-        "自动切换已暂停：桌面保持为你指定的壁纸，但图库仍会每小时自动抓取新壁纸。"
-        + "打开右上角开关会立即按当前模式继续。";
+        "已固定当前壁纸：桌面不会被自动更换，但图库仍会每小时自动抓取新壁纸。"
+        + "在顶部选择「最新壁纸」或「收藏轮换」即可恢复自动切换。";
       return;
     }
     notice.hidden = true;
@@ -470,20 +472,6 @@
     });
   }
 
-  async function setAuto(enabled) {
-    await withBusy(async () => {
-      try {
-        const result = await api("/api/auto-update", { enabled });
-        state.data = result.status;
-        render();
-        toast(enabled ? "自动更新已开启，已切换到最新壁纸" : "自动更新已关闭，壁纸保持不变", "ok");
-      } catch (err) {
-        toast(`设置失败：${err.message}`, "err");
-        await loadState(true);
-      }
-    });
-  }
-
   async function refreshNow() {
     const btn = $("refreshBtn");
     btn.disabled = true;
@@ -515,7 +503,12 @@
         const result = await api("/api/mode", payload);
         state.data = result.status;
         render();
-        toast(mode === "favorites" ? "已切换到收藏轮换" : "已切换到跟随最新壁纸", "ok");
+        const messages = {
+          favorites: "已切换到收藏轮换",
+          latest: "已切换到跟随最新壁纸",
+          off: "已固定当前壁纸",
+        };
+        toast(messages[mode] || "已切换模式", "ok");
       } catch (err) {
         toast(`切换模式失败：${err.message}`, "err");
         await loadState(true);
@@ -572,10 +565,6 @@
         state.filter = tab.dataset.filter;
         renderGrid();
       });
-    });
-
-    $("autoToggle").addEventListener("change", (event) => {
-      setAuto(event.target.checked);
     });
 
     $("refreshBtn").addEventListener("click", refreshNow);

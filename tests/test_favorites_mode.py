@@ -71,7 +71,7 @@ class FavoritesModeTests(unittest.TestCase):
 
         state = self._state()
         self.assertEqual(state["settings"]["mode"], "favorites")
-        self.assertTrue(state["settings"]["autoUpdate"])
+        self.assertEqual(state["settings"]["mode"], "favorites")
         self.assertEqual(state["settings"]["favoriteIntervalMinutes"], 60)
         self.assertEqual(state["currentId"], "img-a")
         self.assertTrue(result["rotate"]["ok"])
@@ -94,8 +94,7 @@ class FavoritesModeTests(unittest.TestCase):
     def test_disabled_mode_ignores_rotation(self):
         self._add("img-a", "20261101", favorite=True)
         state = self._state()
-        state["settings"]["autoUpdate"] = False
-        state["settings"]["mode"] = "favorites"
+        state["settings"]["mode"] = "off"
         store.save_state(state)
 
         self.assertFalse(service.rotation_due())
@@ -106,7 +105,6 @@ class FavoritesModeTests(unittest.TestCase):
     def test_rotation_due_respects_clock(self):
         self._add("img-a", "20261101", favorite=True)
         state = self._state()
-        state["settings"]["autoUpdate"] = True
         state["settings"]["mode"] = "favorites"
         store.save_state(state)
 

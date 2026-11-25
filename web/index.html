@@ -31,12 +31,6 @@
       <div class="controls">
         <span id="statusPill" class="pill neutral"><i></i><b>连接中</b></span>
 
-        <label class="switch" title="自动切换仅决定是否更换桌面壁纸；图库始终每小时自动抓取">
-          <input type="checkbox" id="autoToggle">
-          <span class="track"><span class="thumb"></span></span>
-          <span class="switch-label">自动切换</span>
-        </label>
-
         <button id="refreshBtn" class="btn" type="button">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M20 11a8 8 0 10-2.6 6.3M20 5v6h-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -52,6 +46,7 @@
         <div class="segmented" role="group" aria-label="切换模式">
           <button class="segment is-active" data-mode="latest" type="button">最新壁纸</button>
           <button class="segment" data-mode="favorites" type="button">收藏轮换</button>
+          <button class="segment" data-mode="off" type="button">固定当前</button>
         </div>
 
         <label class="interval" id="intervalWrap" hidden>

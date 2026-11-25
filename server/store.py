@@ -21,9 +21,13 @@ _LOCK = threading.RLock()
 # Fields owned by the user, never by a remote metadata refresh.
 LOCAL_ONLY_FIELDS = ("favorite", "favoriteAt", "lastShownAt")
 
+# `mode` is the single source of truth:
+#   "latest"    — keep switching to Bing's newest image
+#   "favorites" — rotate through the user's favourites
+#   "off"       — pin whatever is on the desktop right now
 DEFAULT_SETTINGS: Dict[str, Any] = {
-    "autoUpdate": True,
-    "mode": "latest",                      # latest | favorites
+    "mode": "latest",
+    "lastActiveMode": "latest",            # what to resume when leaving "off"
     "favoriteIntervalMinutes": config.DEFAULT_FAVORITE_INTERVAL,
     "retentionDays": config.RETENTION_DAYS,
 }
@@ -87,15 +91,26 @@ def load_state() -> Dict[str, Any]:
         if isinstance(raw, dict):
             settings = raw.get("settings")
             if isinstance(settings, dict):
+                migrated = dict(settings)
+                # 旧版本用 autoUpdate(bool) + mode(latest|favorites) 两个字段，
+                # 升级后统一成三态 mode，避免“收藏轮换开着、自动切换也开着”。
+                raw_mode = migrated.get("mode")
+                legacy_auto = migrated.get("autoUpdate")
+                if raw_mode not in ("off", "latest", "favorites"):
+                    raw_mode = "off" if legacy_auto is False else "latest"
+                elif legacy_auto is False:
+                    raw_mode = "off"
+                migrated["mode"] = raw_mode
+                if raw_mode != "off":
+                    migrated.setdefault("lastActiveMode", raw_mode)
                 state["settings"].update(
-                    {k: v for k, v in settings.items() if k in DEFAULT_SETTINGS}
+                    {k: v for k, v in migrated.items() if k in DEFAULT_SETTINGS}
                 )
             for key in state:
                 if key in ("version", "settings"):
                     continue
                 if key in raw:
                     state[key] = raw[key]
-        state["settings"]["autoUpdate"] = bool(state["settings"].get("autoUpdate", True))
         try:
             state["settings"]["retentionDays"] = int(
                 state["settings"].get("retentionDays", config.RETENTION_DAYS)
@@ -103,8 +118,14 @@ def load_state() -> Dict[str, Any]:
         except (TypeError, ValueError):
             state["settings"]["retentionDays"] = config.RETENTION_DAYS
 
-        if state["settings"].get("mode") not in ("latest", "favorites"):
+        if state["settings"].get("mode") not in ("off", "latest", "favorites"):
             state["settings"]["mode"] = "latest"
+        if state["settings"].get("lastActiveMode") not in ("latest", "favorites"):
+            state["settings"]["lastActiveMode"] = (
+                state["settings"]["mode"]
+                if state["settings"]["mode"] in ("latest", "favorites")
+                else "latest"
+            )
         try:
             interval = int(state["settings"].get("favoriteIntervalMinutes"))
         except (TypeError, ValueError):

@@ -92,7 +92,7 @@ class StoreTests(unittest.TestCase):
 
     def test_defaults_when_files_missing(self):
         state = store.load_state()
-        self.assertTrue(state["settings"]["autoUpdate"])
+        self.assertEqual(state["settings"]["mode"], "latest")
         self.assertEqual(state["settings"]["retentionDays"], 10)
         self.assertIsNone(state["currentId"])
 
@@ -100,12 +100,12 @@ class StoreTests(unittest.TestCase):
         state = store.load_state()
         state["selectedId"] = "x"
         state["pausedReason"] = "user-picked"
-        state["settings"]["autoUpdate"] = False
+        state["settings"]["mode"] = "off"
         store.save_state(state)
         loaded = store.load_state()
         self.assertEqual(loaded["selectedId"], "x")
         self.assertEqual(loaded["pausedReason"], "user-picked")
-        self.assertFalse(loaded["settings"]["autoUpdate"])
+        self.assertEqual(loaded["settings"]["mode"], "off")
 
     def test_upsert_preserves_local_fields(self):
         record = self._add("bing-1", "20261101")

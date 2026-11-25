@@ -33,28 +33,47 @@ def _cutoff_startdate(retention_days: int) -> str:
 # ------------------------------------------------------------ settings
 
 
-def set_auto_update(enabled: bool) -> Dict[str, Any]:
-    state = store.load_state()
-    settings = state["settings"]
-    settings["autoUpdate"] = bool(enabled)
-    mode = settings.get("mode") or "latest"
+def _enabled(settings: Dict[str, Any]) -> bool:
+    """自动切换是否生效：三态 mode 中只有 off 表示停用。"""
+    return (settings.get("mode") or "latest") != "off"
 
-    if enabled:
-        # Auto mode takes over: forget the pinned choice.
+
+def _schedule_rotation(state: Dict[str, Any]) -> None:
+    minutes = int(state["settings"].get("favoriteIntervalMinutes") or config.DEFAULT_FAVORITE_INTERVAL)
+    state["nextRotateAt"] = (_now() + timedelta(minutes=minutes)).isoformat(timespec="seconds")
+
+
+def _apply_mode_state(state: Dict[str, Any], mode: str) -> None:
+    """把 mode 的副作用写到 state 上（固定项、暂停原因、轮换排期）。"""
+    if mode == "off":
+        state["pausedReason"] = state.get("pausedReason") or "user"
+        if not state.get("selectedId") and state.get("currentId"):
+            state["selectedId"] = state["currentId"]
+        state["nextRotateAt"] = None
+    else:
         state["selectedId"] = None
         state["pausedReason"] = None
         if mode == "favorites":
-            # Resume the rotation from now instead of firing immediately.
-            minutes = int(settings.get("favoriteIntervalMinutes") or config.DEFAULT_FAVORITE_INTERVAL)
-            state["nextRotateAt"] = (_now() + timedelta(minutes=minutes)).isoformat(timespec="seconds")
+            _schedule_rotation(state)
         else:
             state["nextRotateAt"] = None
+
+
+def set_auto_update(enabled: bool) -> Dict[str, Any]:
+    """兼容旧的开关接口：等价于在 mode 与 off 之间切换。"""
+    state = store.load_state()
+    settings = state["settings"]
+    current = settings.get("mode") or "latest"
+
+    if enabled:
+        if current == "off":
+            settings["mode"] = settings.get("lastActiveMode") or "latest"
     else:
-        # Pausing keeps whatever is on the desktop right now as the pinned pick.
-        state["pausedReason"] = "user"
-        state["nextRotateAt"] = None
-        if not state.get("selectedId") and state.get("currentId"):
-            state["selectedId"] = state["currentId"]
+        if current != "off":
+            settings["lastActiveMode"] = current
+        settings["mode"] = "off"
+
+    _apply_mode_state(state, settings["mode"])
     state["updatedAt"] = _now_iso()
     store.save_state(state)
     return state
@@ -71,36 +90,37 @@ def _clamp_interval(value: Any) -> int:
 
 
 def set_mode(mode: str, interval_minutes: Any = None) -> Dict[str, Any]:
-    """Switch between following the newest Bing image and rotating favourites."""
-    if mode not in ("latest", "favorites"):
+    """三态模式的唯一入口：off / latest / favorites。"""
+    if mode not in ("off", "latest", "favorites"):
         raise ValueError(f"未知模式: {mode}")
 
     state = store.load_state()
     settings = state["settings"]
-    settings["mode"] = mode
-    settings["autoUpdate"] = True
     if interval_minutes is not None:
         settings["favoriteIntervalMinutes"] = _clamp_interval(interval_minutes)
-    state["selectedId"] = None
-    state["pausedReason"] = None
+    settings["mode"] = mode
+    if mode != "off":
+        settings["lastActiveMode"] = mode
+
+    _apply_mode_state(state, mode)
     state["updatedAt"] = _now_iso()
 
     if mode == "favorites":
-        minutes = int(settings.get("favoriteIntervalMinutes") or config.DEFAULT_FAVORITE_INTERVAL)
-        state["nextRotateAt"] = (_now() + timedelta(minutes=minutes)).isoformat(timespec="seconds")
         store.save_state(state)
         return {"mode": mode, "rotate": rotate_favorite(force=True), "state": store.load_state()}
+    if mode == "latest":
+        store.save_state(state)
+        return {"mode": mode, "sync": sync(trigger="mode-latest"), "state": store.load_state()}
 
-    state["nextRotateAt"] = None
     store.save_state(state)
-    return {"mode": mode, "sync": sync(trigger="mode-latest"), "state": store.load_state()}
+    return {"mode": mode, "state": store.load_state()}
 
 
 def rotation_due() -> bool:
     """True when favourites rotation should run now."""
     state = store.load_state()
     settings = state["settings"]
-    if not settings.get("autoUpdate") or (settings.get("mode") or "latest") != "favorites":
+    if (settings.get("mode") or "latest") != "favorites":
         return False
     due = state.get("nextRotateAt")
     if not due:
@@ -121,7 +141,7 @@ def rotate_favorite(force: bool = False) -> Dict[str, Any]:
     settings = state["settings"]
     minutes = int(settings.get("favoriteIntervalMinutes") or config.DEFAULT_FAVORITE_INTERVAL)
 
-    if not force and (not settings.get("autoUpdate") or (settings.get("mode") or "latest") != "favorites"):
+    if not force and (settings.get("mode") or "latest") != "favorites":
         return {"ok": False, "reason": "mode-disabled"}
 
     favorites = _favorite_images()
@@ -259,10 +279,11 @@ def sync(trigger: str = "scheduled", force_refresh: bool = False) -> Dict[str, A
         latest = available[0] if available else None
 
         mode = settings.get("mode") or "latest"
+        enabled = _enabled(settings)
         action = "kept"
         if latest is None:
             action = "empty"
-        elif settings.get("autoUpdate") and mode == "favorites":
+        elif enabled and mode == "favorites":
             # 收藏轮换模式下，同步只负责图库；桌面由轮换逻辑维护。
             current = store.get_image(state.get("currentId") or "")
             if current and not _same_on_desktop(current):
@@ -270,7 +291,7 @@ def sync(trigger: str = "scheduled", force_refresh: bool = False) -> Dict[str, A
                 action = "restored-favorite" if applied["ok"] else "restore-failed"
             else:
                 action = "favorite-mode"
-        elif settings.get("autoUpdate"):
+        elif enabled:
             current = store.get_image(state.get("currentId") or "")
             already = bool(current and current["id"] == latest["id"]) and _same_on_desktop(current)
             if not already:
@@ -334,7 +355,9 @@ def switch_to(image_id: str) -> Dict[str, Any]:
     state = store.load_state()
     if applied["ok"]:
         state["selectedId"] = image_id
-        state["settings"]["autoUpdate"] = False
+        if (state["settings"].get("mode") or "latest") != "off":
+            state["settings"]["lastActiveMode"] = state["settings"]["mode"]
+        state["settings"]["mode"] = "off"
         state["pausedReason"] = "user-picked"
         state["updatedAt"] = _now_iso()
         store.save_state(state)
@@ -423,7 +446,7 @@ def status() -> Dict[str, Any]:
             "helper": wallpaper.helper_available(),
         },
         "settings": state.get("settings", {}),
-        "autoUpdate": bool(state.get("settings", {}).get("autoUpdate", True)),
+        "autoUpdate": _enabled(state.get("settings", {})),
         "mode": state.get("settings", {}).get("mode", "latest"),
         "favoriteIntervalMinutes": state.get("settings", {}).get("favoriteIntervalMinutes", config.DEFAULT_FAVORITE_INTERVAL),
         "nextRotateAt": state.get("nextRotateAt"),
