@@ -23,6 +23,8 @@ LOCAL_ONLY_FIELDS = ("favorite", "favoriteAt", "lastShownAt")
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "autoUpdate": True,
+    "mode": "latest",                      # latest | favorites
+    "favoriteIntervalMinutes": config.DEFAULT_FAVORITE_INTERVAL,
     "retentionDays": config.RETENTION_DAYS,
 }
 
@@ -38,6 +40,9 @@ DEFAULT_STATE: Dict[str, Any] = {
     "lastCheckResult": None,
     "lastError": None,
     "nextCheckAt": None,
+    "nextRotateAt": None,
+    "lastRotateAt": None,
+    "lastRotateResult": None,
     "updatedAt": None,
 }
 
@@ -97,6 +102,16 @@ def load_state() -> Dict[str, Any]:
             )
         except (TypeError, ValueError):
             state["settings"]["retentionDays"] = config.RETENTION_DAYS
+
+        if state["settings"].get("mode") not in ("latest", "favorites"):
+            state["settings"]["mode"] = "latest"
+        try:
+            interval = int(state["settings"].get("favoriteIntervalMinutes"))
+        except (TypeError, ValueError):
+            interval = config.DEFAULT_FAVORITE_INTERVAL
+        if interval not in config.FAVORITE_INTERVALS:
+            interval = config.DEFAULT_FAVORITE_INTERVAL
+        state["settings"]["favoriteIntervalMinutes"] = interval
         return state
 
 

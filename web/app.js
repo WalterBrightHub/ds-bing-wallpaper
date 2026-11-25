@@ -144,7 +144,7 @@
       pill.innerHTML = "<i></i><b>同步异常</b>";
     } else if (data.autoUpdate) {
       pill.className = "pill live";
-      pill.innerHTML = "<i></i><b>自动更新中</b>";
+      pill.innerHTML = "<i></i><b>自动切换中</b>";
     } else {
       pill.className = "pill paused";
       pill.innerHTML = "<i></i><b>切换已暂停</b>";
@@ -156,6 +156,40 @@
     const desktopEl = $("desktopFile");
     desktopEl.textContent = desktop;
     desktopEl.title = data.desktopPath || "";
+  }
+
+  function intervalLabel(minutes) {
+    const value = Number(minutes) || 180;
+    if (value >= 1440) return `${Math.round(value / 1440)} 天`;
+    if (value >= 60) return `${Math.round(value / 60)} 小时`;
+    return `${value} 分钟`;
+  }
+
+  function renderMode() {
+    const data = state.data;
+    const note = $("modeNote");
+    const wrap = $("intervalWrap");
+    const select = $("intervalSelect");
+    if (!data) return;
+
+    const mode = data.mode === "favorites" ? "favorites" : "latest";
+    document.querySelectorAll(".segment").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.mode === mode);
+    });
+
+    wrap.hidden = mode !== "favorites";
+    if (mode === "favorites") select.value = String(data.favoriteIntervalMinutes || 180);
+
+    if (!data.autoUpdate) {
+      note.textContent = "自动切换已暂停；点选任一模式即可重新开启";
+    } else if (mode === "latest") {
+      note.textContent = "跟随 Bing 每日最新壁纸，同一张不重复设置";
+    } else {
+      const favs = data.stats.favorites;
+      if (!favs) note.textContent = "还没有收藏，先点卡片右上角的星标";
+      else if (favs === 1) note.textContent = "只有 1 张收藏，会一直使用这一张";
+      else note.textContent = `${favs} 张收藏轮换 · 下次 ${data.nextRotateAt ? clock(data.nextRotateAt) : "即将"}`;
+    }
   }
 
   function renderHero() {
@@ -180,7 +214,9 @@
     }
 
     $("heroBadge").innerHTML = data.autoUpdate
-      ? "<i></i>自动更新 · 最新壁纸"
+      ? (data.mode === "favorites"
+          ? `<i></i>收藏轮换 · 每 ${intervalLabel(data.favoriteIntervalMinutes)}`
+          : "<i></i>自动更新 · 最新壁纸")
       : `<i></i>${data.pausedReason === "user-picked" ? "已固定 · 手动选择" : "切换已暂停 · 保持当前"}`;
     $("heroDate").textContent = dayLabel(image.startdate);
     $("heroTitle").textContent = image.title || "未命名壁纸";
@@ -190,7 +226,9 @@
     if (image.width && image.height) tags.push(`${image.width}×${image.height}`);
     tags.push(`#${String(image.id).split("-").pop()}`);
     if (image.favorite) tags.push("★ 已收藏");
-    if (data.autoUpdate && image.isCurrent) tags.push("每小时检查更新");
+    if (data.autoUpdate && image.isCurrent) {
+      tags.push(data.mode === "favorites" ? "收藏轮换中" : "每小时检查更新");
+    }
     $("heroTags").innerHTML = tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("");
 
     const learn = $("heroLearn");
@@ -229,8 +267,8 @@
       notice.hidden = false;
       notice.className = "notice";
       notice.textContent =
-        "自动更新已暂停：桌面保持为你指定的壁纸，但图库仍会每小时自动抓取新壁纸。"
-        + "打开「自动更新」会立即切换到最新的一张。";
+        "自动切换已暂停：桌面保持为你指定的壁纸，但图库仍会每小时自动抓取新壁纸。"
+        + "打开右上角开关会立即按当前模式继续。";
       return;
     }
     notice.hidden = true;
@@ -367,6 +405,7 @@
 
   function render() {
     renderStatus();
+    renderMode();
     renderHero();
     renderStats();
     renderNotice();
@@ -468,6 +507,22 @@
     }
   }
 
+  async function setMode(mode, intervalMinutes) {
+    await withBusy(async () => {
+      try {
+        const payload = { mode };
+        if (intervalMinutes) payload.intervalMinutes = intervalMinutes;
+        const result = await api("/api/mode", payload);
+        state.data = result.status;
+        render();
+        toast(mode === "favorites" ? "已切换到收藏轮换" : "已切换到跟随最新壁纸", "ok");
+      } catch (err) {
+        toast(`切换模式失败：${err.message}`, "err");
+        await loadState(true);
+      }
+    });
+  }
+
   async function revealLibrary() {
     const btn = $("revealBtn");
     if (btn.disabled) return;
@@ -525,6 +580,13 @@
 
     $("refreshBtn").addEventListener("click", refreshNow);
     $("revealBtn").addEventListener("click", revealLibrary);
+
+    document.querySelectorAll(".segment").forEach((btn) => {
+      btn.addEventListener("click", () => setMode(btn.dataset.mode));
+    });
+    $("intervalSelect").addEventListener("change", (event) => {
+      setMode("favorites", Number(event.target.value));
+    });
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "r" && (event.metaKey || event.ctrlKey)) {

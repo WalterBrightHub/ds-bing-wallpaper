@@ -65,6 +65,7 @@ class Scheduler(threading.Thread):
         self._last_result: Optional[Dict[str, Any]] = None
         self._next_run: Optional[datetime] = None
         self._next_delay = interval
+        self._sync_deadline: Optional[float] = None
         self._last_wake_at: Optional[datetime] = None
         self._wake_syncs = 0
         self._lock = threading.Lock()
@@ -104,7 +105,10 @@ class Scheduler(threading.Thread):
         trigger = "startup"
         while not self._stop.is_set():
             try:
-                self._tick(trigger)
+                if trigger == "rotate":
+                    self._rotate()
+                else:
+                    self._tick(trigger)
                 trigger = self._await_next()
             except Exception as exc:  # a daemon thread must never die silently
                 log(f"scheduler loop error: {exc!r} — retrying in 5s")
@@ -135,11 +139,25 @@ class Scheduler(threading.Thread):
             self._running = False
             self._last_result = result
             self._next_delay = delay
+            self._sync_deadline = time.monotonic() + delay
             self._next_run = datetime.now().astimezone() + timedelta(seconds=delay)
 
+    def _rotate(self) -> None:
+        """Favourites rotation: swap the desktop picture, no network involved."""
+        with self._lock:
+            self._running = True
+        try:
+            result = service.rotate_favorite()
+            log(f"rotate favorites result={result}")
+        except Exception as exc:  # never let the loop die
+            log(f"rotate crashed: {exc!r}")
+        finally:
+            with self._lock:
+                self._running = False
+
     def _await_next(self) -> str:
-        """Block until the next sync is due. Returns the trigger label."""
-        deadline = time.monotonic() + self._next_delay
+        """Block until the next sync (or rotation) is due."""
+        deadline = self._sync_deadline if self._sync_deadline is not None else time.monotonic() + self._next_delay
         mono_prev = time.monotonic()
         wall_prev = time.time()
 
@@ -147,6 +165,11 @@ class Scheduler(threading.Thread):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return "scheduled" if self._next_delay == self.interval else "retry"
+
+            # 收藏轮换按墙钟到点触发；轮换不重置同步节奏。
+            if service.rotation_due():
+                self._wake.clear()
+                return "rotate"
 
             woke = self._wake.wait(timeout=min(remaining, config.POLL_SECONDS))
 

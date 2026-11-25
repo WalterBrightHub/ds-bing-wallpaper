@@ -31,10 +31,10 @@
       <div class="controls">
         <span id="statusPill" class="pill neutral"><i></i><b>连接中</b></span>
 
-        <label class="switch" title="自动更新只决定是否把桌面切换为最新壁纸；图库始终每小时自动抓取">
+        <label class="switch" title="自动切换仅决定是否更换桌面壁纸；图库始终每小时自动抓取">
           <input type="checkbox" id="autoToggle">
           <span class="track"><span class="thumb"></span></span>
-          <span class="switch-label">自动更新</span>
+          <span class="switch-label">自动切换</span>
         </label>
 
         <button id="refreshBtn" class="btn" type="button">
@@ -47,6 +47,29 @@
     </header>
 
     <main>
+      <section class="mode-bar" aria-label="切换模式">
+        <span class="mode-label">切换模式</span>
+        <div class="segmented" role="group" aria-label="切换模式">
+          <button class="segment is-active" data-mode="latest" type="button">最新壁纸</button>
+          <button class="segment" data-mode="favorites" type="button">收藏轮换</button>
+        </div>
+
+        <label class="interval" id="intervalWrap" hidden>
+          每
+          <select id="intervalSelect" aria-label="收藏轮换频率">
+            <option value="30">30 分钟</option>
+            <option value="60">1 小时</option>
+            <option value="180">3 小时</option>
+            <option value="360">6 小时</option>
+            <option value="720">12 小时</option>
+            <option value="1440">24 小时</option>
+          </select>
+          <span id="intervalSuffix">轮换一次</span>
+        </label>
+
+        <span class="mode-note" id="modeNote"></span>
+      </section>
+
       <section class="stage" id="hero">
         <figure class="stage-frame">
           <img id="heroImg" alt="当前壁纸" decoding="async" fetchpriority="high">

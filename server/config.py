@@ -10,7 +10,7 @@ from pathlib import Path
 
 APP_NAME = "DS Bing Wallpaper"
 APP_NAME_ZH = "DS 必应壁纸"
-VERSION = "1.3.3"
+VERSION = "1.4.0"
 BUNDLE_ID = "com.deepseek.dsbingwallpaper"
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
@@ -47,6 +47,9 @@ POLL_SECONDS = 30
 WAKE_DRIFT_THRESHOLD = 90
 # Retry delay after a failed sync (e.g. no network right after waking up).
 RETRY_SECONDS = 300
+# 收藏轮换允许的间隔（分钟）与默认值
+FAVORITE_INTERVALS = (30, 60, 180, 360, 720, 1440)
+DEFAULT_FAVORITE_INTERVAL = 180
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "

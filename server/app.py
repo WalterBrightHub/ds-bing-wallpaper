@@ -178,6 +178,19 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": bool(result.get("ok")), "sync": result, "status": service.status()})
                 return
 
+            if path == "/api/mode":
+                try:
+                    result = service.set_mode(str(body.get("mode") or ""), body.get("intervalMinutes"))
+                except ValueError as exc:
+                    self._error(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+                scheduler.log(
+                    f"mode={result['mode']} interval={service.status()['favoriteIntervalMinutes']} "
+                    f"action={result.get('rotate') or result.get('sync')}"
+                )
+                self._json({"ok": True, **result, "status": service.status()})
+                return
+
             if path == "/api/reveal-library":
                 result = service.reveal_library()
                 scheduler.log(f"reveal library -> {result}")
